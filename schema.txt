@@ -1,0 +1,18 @@
+Table: retail_table
+
+Columns:
+- InvoiceNo (text)
+- StockCode (text)
+- Description (text)
+- Quantity (integer)
+- InvoiceDate (timestamp)
+- UnitPrice (numeric)
+- CustomerID (integer)
+- Country (text)
+
+Business Rules:
+- Revenue = Quantity * UnitPrice
+- One InvoiceNo can contain multiple rows
+- Each row represents one product in an invoice
+- Exclude returns:
+    Quantity > 0
