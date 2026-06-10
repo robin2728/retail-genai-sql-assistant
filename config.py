@@ -9,12 +9,14 @@ DB_CONFIG = {
     "database": os.getenv("DB_NAME"),
     "user": os.getenv("DB_USER"),
     "password": os.getenv("DB_PASSWORD"),
-    "port": os.getenv("DB_PORT")
+    #"port": os.getenv("DB_PORT")
+    "port" : int(os.getenv("DB_PORT", 5432))
 }
 
-REDIS_HOST = os.getenv("REDIS_HOST")
-REDIS_PORT = int(os.getenv("REDIS_PORT"))
-
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+#REDIS_HOST = os.getenv("REDIS_HOST")
+#REDIS_PORT = int(os.getenv("REDIS_PORT"))
+REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 CACHE_TTL = 600
 
 RATE_LIMIT = 20
