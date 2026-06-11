@@ -32,6 +32,13 @@ def load_schema():
 
     with open("schema.txt", "r") as f:
         return f.read()
+    
+@router.get("/")
+async def home():
+    return {
+        "status": "healthy",
+        "application": "Retail GenAI SQL Assistant"
+    }
 
 @router.post("/ask", response_model=AskResponse)
 async def ask_question(request: QuestionRequest):
