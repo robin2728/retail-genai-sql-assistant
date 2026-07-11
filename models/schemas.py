@@ -10,3 +10,16 @@ class AskResponse(BaseModel):
     sql_generated: str
     insight: str
     data: List[Any]
+
+class LoginRequest(BaseModel):
+
+    username: str
+
+    password: str
+
+
+class TokenResponse(BaseModel):
+
+    access_token: str
+
+    token_type: str

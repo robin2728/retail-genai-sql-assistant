@@ -6,3 +6,5 @@ asyncpg
 redis
 pandas
 python-dotenv
+python-jose[cryptography]
+passlib[bcrypt]

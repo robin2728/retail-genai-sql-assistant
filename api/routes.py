@@ -1,9 +1,17 @@
 from fastapi import APIRouter, HTTPException
 import time
+from fastapi import Depends
 
+from auth.auth_dependency import authenticate_user
 from models.schemas import (
     QuestionRequest,
     AskResponse
+)
+from auth.jwt_handler import create_access_token
+
+from models.schemas import (
+    LoginRequest,
+    TokenResponse
 )
 
 from services.sql_service import generate_sql
@@ -27,7 +35,14 @@ from cache.rate_limiter import (
 from utils.logger import logger, log_event
 
 router = APIRouter()
+# =====================================
+# TEMPORARY USER (Learning Purpose)
+# =====================================
 
+HARDCODED_USER = {
+    "username": "robin",
+    "password": "password123"
+}
 
 def load_schema():
 
@@ -42,9 +57,58 @@ async def home():
         "application": "Retail GenAI SQL Assistant"
     }
 
+@router.post(
+    "/login",
+    response_model=TokenResponse
+)
+async def login(
+    request: LoginRequest
+):
 
-@router.post("/ask", response_model=AskResponse)
-async def ask_question(request: QuestionRequest):
+    # =====================================
+    # VERIFY USERNAME & PASSWORD
+    # =====================================
+
+    if (
+        request.username != HARDCODED_USER["username"]
+        or
+        request.password != HARDCODED_USER["password"]
+    ):
+
+        log_event(
+            event="login_failed",
+            username=request.username
+        )
+
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid username or password"
+        )
+
+    # =====================================
+    # CREATE JWT TOKEN
+    # =====================================
+
+    access_token = create_access_token(
+        data={
+            "sub": request.username
+        }
+    )
+
+    log_event(
+        event="login_success",
+        username=request.username
+    )
+
+    return TokenResponse(
+        access_token=access_token,
+        token_type="bearer"
+    )
+    
+@router.post(
+    "/ask",
+    response_model=AskResponse)
+async def ask_question(request: QuestionRequest,user=Depends(authenticate_user)):
 
     request_start = time.perf_counter()
 

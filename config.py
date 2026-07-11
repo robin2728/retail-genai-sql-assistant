@@ -23,3 +23,16 @@ CACHE_TTL = 600
 
 RATE_LIMIT = 20
 RATE_WINDOW = 60
+
+# ======================================
+# JWT Configuration
+# ======================================
+
+SECRET_KEY = os.getenv(
+    "SECRET_KEY",
+    "ThisIsMyVeryLongSecretKeyForLearning123456"
+)
+
+ALGORITHM = "HS256"
+
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
