@@ -24,7 +24,7 @@ from cache.rate_limiter import (
     check_rate_limit
 )
 
-from utils.logger import logger
+from utils.logger import logger, log_event
 
 router = APIRouter()
 
@@ -95,9 +95,11 @@ async def ask_question(request: QuestionRequest):
         time.perf_counter() - sql_start
     )
 
-    logger.info(
-        f"Generated SQL: {sql_query}"
-    )
+    log_event(
+        event="sql_generated",
+        question=request.question,
+        sql=sql_query,
+        sql_generation_time=round(sql_time, 4))
 
     if not validate_sql(sql_query):
         raise HTTPException(
@@ -125,29 +127,19 @@ async def ask_question(request: QuestionRequest):
             time.perf_counter() - request_start
         )
 
-        logger.info(
-            f"""
-==============================
-CACHE HIT
-==============================
-
-Question:
-{request.question}
-
-Rate Limit Time : {rate_time:.4f}s
-Schema Time     : {schema_time:.4f}s
-SQL Time        : {sql_time:.4f}s
-Cache Lookup    : {cache_lookup_time:.4f}s
-
-TOTAL TIME      : {total_time:.4f}s
-
-==============================
-"""
-        )
-
+        log_event(
+            event="cache_hit",
+            question=request.question,
+            rate_limit_time=round(rate_time, 4),
+            schema_load_time=round(schema_time, 4),
+            sql_generation_time=round(sql_time, 4),
+            cache_lookup_time=round(cache_lookup_time, 4),
+            total_time=round(total_time, 4))
         return cached
 
-    logger.info("Cache MISS")
+    log_event(
+        event="cache_miss",
+        question=request.question)
 
     # =====================================
     # DATABASE TIMING
@@ -170,9 +162,10 @@ TOTAL TIME      : {total_time:.4f}s
 
     except Exception as e:
 
-        logger.error(
-            f"SQL Execution Error: {e}"
-        )
+        log_event(
+            event="sql_execution_error",
+            question=request.question,
+            error=str(e))
 
         # ============================
         # RETRY TIMING
@@ -258,28 +251,17 @@ TOTAL TIME      : {total_time:.4f}s
         time.perf_counter() - request_start
     )
 
-    logger.info(
-        f"""
-==============================
-LATENCY BREAKDOWN
-==============================
-
-Question:
-{request.question}
-
-Rate Limit Time : {rate_time:.4f}s
-Schema Time     : {schema_time:.4f}s
-SQL Time        : {sql_time:.4f}s
-Cache Lookup    : {cache_lookup_time:.4f}s
-DB Time         : {db_time:.4f}s
-Retry Time      : {retry_time:.4f}s
-Insight Time    : {insight_time:.4f}s
-Cache Save Time : {cache_save_time:.4f}s
-
-TOTAL TIME      : {total_time:.4f}s
-
-==============================
-"""
-    )
+    log_event(
+        event="request_completed",
+        question=request.question,
+        rate_limit_time=round(rate_time, 4),
+        schema_load_time=round(schema_time, 4),
+        sql_generation_time=round(sql_time, 4),
+        cache_lookup_time=round(cache_lookup_time, 4),
+        db_execution_time=round(db_time, 4),
+        retry_time=round(retry_time, 4),
+        insight_generation_time=round(insight_time, 4),
+        cache_save_time=round(cache_save_time, 4),
+        total_time=round(total_time, 4))
 
     return response
