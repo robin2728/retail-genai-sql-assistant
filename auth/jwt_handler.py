@@ -18,7 +18,7 @@ def create_access_token(data: dict):
 
     payload = data.copy()
 
-    expire = datetime.time() + timedelta(
+    expire = datetime.now(datetime.timezone.utc) + timedelta(
         minutes=ACCESS_TOKEN_EXPIRE_MINUTES
     )
 
