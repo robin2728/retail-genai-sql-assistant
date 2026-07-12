@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException
 import time
 from fastapi import Depends
-
 from auth.auth_dependency import authenticate_user
 from models.schemas import (
     QuestionRequest,

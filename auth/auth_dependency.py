@@ -1,49 +1,15 @@
+from fastapi import Depends
 from fastapi import HTTPException
-from fastapi import Header
 
 from auth.jwt_handler import verify_access_token
+from auth.oauth2 import oauth2_scheme
 
 
 async def authenticate_user(
 
-    authorization: str = Header(None)
+    token: str = Depends(oauth2_scheme)
 
 ):
-
-    # ===================================
-    # CHECK HEADER EXISTS
-    # ===================================
-
-    if authorization is None:
-
-        raise HTTPException(
-            status_code=401,
-            detail="Authorization header missing"
-        )
-
-    # ===================================
-    # CHECK BEARER PREFIX
-    # ===================================
-
-    if not authorization.startswith("Bearer "):
-
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid Authorization header"
-        )
-
-    # ===================================
-    # EXTRACT TOKEN
-    # ===================================
-
-    token = authorization.replace(
-        "Bearer ",
-        ""
-    )
-
-    # ===================================
-    # VERIFY TOKEN
-    # ===================================
 
     payload = verify_access_token(token)
 
@@ -51,7 +17,7 @@ async def authenticate_user(
 
         raise HTTPException(
             status_code=401,
-            detail="Invalid or expired token"
+            detail="Invalid or Expired Token"
         )
 
     return payload
