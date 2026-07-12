@@ -6,12 +6,10 @@ from models.schemas import (
     QuestionRequest,
     AskResponse
 )
+from fastapi.security import OAuth2PasswordRequestForm
 from auth.jwt_handler import create_access_token
 
-from models.schemas import (
-    LoginRequest,
-    TokenResponse
-)
+from models.schemas import TokenResponse
 
 from services.sql_service import generate_sql
 from services.retry_service import retry_sql
@@ -56,12 +54,13 @@ async def home():
         "application": "Retail GenAI SQL Assistant"
     }
 
+
 @router.post(
     "/login",
     response_model=TokenResponse
 )
 async def login(
-    request: LoginRequest
+    form_data: OAuth2PasswordRequestForm = Depends()
 ):
 
     # =====================================
@@ -69,14 +68,14 @@ async def login(
     # =====================================
 
     if (
-        request.username != HARDCODED_USER["username"]
+        form_data.username != HARDCODED_USER["username"]
         or
-        request.password != HARDCODED_USER["password"]
+        form_data.password != HARDCODED_USER["password"]
     ):
 
         log_event(
             event="login_failed",
-            username=request.username
+            username=form_data.username
         )
 
         raise HTTPException(
@@ -90,20 +89,21 @@ async def login(
 
     access_token = create_access_token(
         data={
-            "sub": request.username
+            "sub": form_data.username
         }
     )
 
     log_event(
         event="login_success",
-        username=request.username
+        username=form_data.username
     )
 
     return TokenResponse(
         access_token=access_token,
         token_type="bearer"
     )
-    
+
+
 @router.post(
     "/ask",
     response_model=AskResponse)
