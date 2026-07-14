@@ -111,3 +111,44 @@ async def append_message(
         conversation
 
     )
+
+# ==========================================
+# FORMAT CONVERSATION FOR LLM
+# ==========================================
+
+def format_conversation(
+    conversation: list
+) -> str:
+    """
+    Converts conversation history into
+    a readable text format for the LLM.
+
+    Example:
+
+    User: Hi
+    Assistant: Hello
+    User: What is revenue?
+    """
+
+    if not conversation:
+        return "This is the beginning of the conversation."
+
+    formatted_conversation = ""
+
+    for message in conversation:
+
+        role = message.get(
+            "role",
+            "Unknown"
+        ).capitalize()
+
+        content = message.get(
+            "content",
+            ""
+        )
+
+        formatted_conversation += (
+            f"{role}: {content}\n"
+        )
+
+    return formatted_conversation

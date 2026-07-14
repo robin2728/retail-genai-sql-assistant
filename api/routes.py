@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 import time
 from fastapi import Depends
 from memory.conversation_memory import (
-    append_message
+    append_message,get_conversation
 )
 from auth.auth_dependency import authenticate_user
 from models.schemas import (
@@ -152,10 +152,14 @@ async def ask_question(request: QuestionRequest,user=Depends(authenticate_user))
 
     sql_start = time.perf_counter()
 
+    conversation = await get_conversation(
+        user["sub"]
+    )
+
     sql_query = await generate_sql(
         request.question,
-        schema
-    )
+        schema,
+        conversation)
 
     sql_time = (
         time.perf_counter() - sql_start
@@ -276,7 +280,8 @@ async def ask_question(request: QuestionRequest,user=Depends(authenticate_user))
 
     insight = await generate_insight(
         request.question,
-        str(result)
+        str(result),
+        conversation
     )
 
     insight_time = (
