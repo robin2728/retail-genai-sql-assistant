@@ -1,6 +1,9 @@
 from fastapi import APIRouter, HTTPException
 import time
 from fastapi import Depends
+from memory.conversation_memory import (
+    append_message
+)
 from auth.auth_dependency import authenticate_user
 from models.schemas import (
     QuestionRequest,
@@ -291,6 +294,29 @@ async def ask_question(request: QuestionRequest,user=Depends(authenticate_user))
         data=result
     )
 
+        # =====================================
+    # SAVE CONVERSATION MEMORY
+    # =====================================
+
+    await append_message(
+
+        user["username"],
+
+        "user",
+
+        request.question
+
+    )
+
+    await append_message(
+
+        user["username"],
+
+        "assistant",
+
+        insight
+
+    )
     # =====================================
     # CACHE SAVE TIMING
     # =====================================
