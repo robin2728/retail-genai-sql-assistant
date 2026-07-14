@@ -300,7 +300,7 @@ async def ask_question(request: QuestionRequest,user=Depends(authenticate_user))
 
     await append_message(
 
-        user["username"],
+        user["sub"],
 
         "user",
 
@@ -310,7 +310,7 @@ async def ask_question(request: QuestionRequest,user=Depends(authenticate_user))
 
     await append_message(
 
-        user["username"],
+        user["sub"],
 
         "assistant",
 
