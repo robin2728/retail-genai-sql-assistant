@@ -32,10 +32,10 @@ prompt = ChatPromptTemplate.from_template(
 
 chain = prompt | llm_insight | StrOutputParser()
 
-async def generate_insight(question,result,conversation):
+async def generate_insight(question,result,memory_context):
 
     return await chain.ainvoke({
-        "conversation": conversation,
+        "conversation": memory_context,
         "question": question,
         "result": result
     })

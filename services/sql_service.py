@@ -40,12 +40,12 @@ prompt = ChatPromptTemplate.from_messages([
 
 chain = prompt | llm_sql | StrOutputParser()
 
-async def generate_sql(question: str, schema: str, conversation):
+async def generate_sql(question: str, schema: str, memory_context):
 
 
     output = await chain.ainvoke({
         "schema": schema,
-        "conversation": conversation,
+        "conversation": memory_context,
         "question": question})
 
     return output.strip()

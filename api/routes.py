@@ -16,7 +16,7 @@ from memory.conversation_memory import (
     get_conversation
 )
 from memory.memory_service import (
-    get_formatted_conversation
+    get_memory_context
 )
 from fastapi.security import OAuth2PasswordRequestForm
 from auth.jwt_handler import create_access_token
@@ -178,14 +178,12 @@ async def ask_question(request: QuestionRequest,user=Depends(authenticate_user))
 
     sql_start = time.perf_counter()
 
-    conversation = await get_formatted_conversation(
-    user["sub"]
-)
+    memory_context = await get_memory_context(user["sub"])
 
     sql_query = await generate_sql(
         request.question,
         schema,
-        conversation)
+        memory_context)
 
     sql_time = (
         time.perf_counter() - sql_start
@@ -307,7 +305,7 @@ async def ask_question(request: QuestionRequest,user=Depends(authenticate_user))
     insight = await generate_insight(
         request.question,
         str(result),
-        conversation
+        memory_context
     )
 
     insight_time = (
@@ -348,6 +346,42 @@ async def ask_question(request: QuestionRequest,user=Depends(authenticate_user))
         insight
 
     )
+
+    conversation = await get_conversation(user["sub"])
+
+    if len(conversation) >= 30:
+
+        old_conversation = conversation[:-10]
+
+        new_summary = await generate_summary(
+            old_conversation
+        )
+
+        existing_summary = await get_summary(
+            user["sub"]
+        )
+
+        if existing_summary:
+
+            final_summary = (
+                existing_summary
+                + "\n\n"
+                + new_summary
+            )
+
+        else:
+
+            final_summary = new_summary
+
+        await save_summary(
+            user["sub"],
+            final_summary
+        )
+
+        await trim_conversation(
+            user["sub"],
+            keep_last=10
+        )
     # =====================================
     # CACHE SAVE TIMING
     # =====================================
