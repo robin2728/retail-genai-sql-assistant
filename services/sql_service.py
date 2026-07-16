@@ -42,11 +42,10 @@ chain = prompt | llm_sql | StrOutputParser()
 
 async def generate_sql(question: str, schema: str, conversation):
 
-    conversation_text = format_conversation(conversation)
 
     output = await chain.ainvoke({
         "schema": schema,
-        "conversation": conversation_text,
+        "conversation": conversation,
         "question": question})
 
     return output.strip()

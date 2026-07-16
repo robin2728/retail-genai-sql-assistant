@@ -117,7 +117,8 @@ async def append_message(
 # ==========================================
 
 def format_conversation(
-    conversation: list
+    conversation: list,
+    max_messages: int = 10
 ) -> str:
     """
     Converts conversation history into
@@ -132,6 +133,8 @@ def format_conversation(
 
     if not conversation:
         return "This is the beginning of the conversation."
+    
+    conversation = conversation[-max_messages:]
 
     formatted_conversation = ""
 
@@ -152,3 +155,46 @@ def format_conversation(
         )
 
     return formatted_conversation
+
+
+
+# ==========================================
+# GET CONVERSATION SUMMARY
+# ==========================================
+
+async def get_summary(
+    user_id: str
+) -> str:
+
+    key = f"summary:{user_id}"
+
+    summary = await redis_client.get(key)
+
+    if summary:
+
+        return summary
+
+    return ""
+
+
+# ==========================================
+# SAVE CONVERSATION SUMMARY
+# ==========================================
+
+async def save_summary(
+    user_id: str,
+    summary: str
+):
+
+    key = f"summary:{user_id}"
+
+    await redis_client.set(
+        key,
+        summary,
+        ex=86400
+    )
+
+    log_event(
+        event="summary_saved",
+        user=user_id
+    )

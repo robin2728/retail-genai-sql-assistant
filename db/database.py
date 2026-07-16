@@ -17,6 +17,8 @@ async def create_db_pool():
     min_size=5,
     max_size=20
 )
+    
+    
 async def execute_sql(sql_query: str):
 
     async with pool.acquire() as connection:

@@ -1,13 +1,14 @@
 from fastapi import APIRouter, HTTPException
 import time
 from fastapi import Depends
-from memory.conversation_memory import (
-    append_message,get_conversation
-)
+from memory.conversation_memory import *
 from auth.auth_dependency import authenticate_user
 from models.schemas import (
     QuestionRequest,
     AskResponse
+)
+from memory.memory_service import (
+    get_formatted_conversation
 )
 from fastapi.security import OAuth2PasswordRequestForm
 from auth.jwt_handler import create_access_token
@@ -107,6 +108,28 @@ async def login(
     )
 
 
+
+@router.get("/summary-test")
+async def summary_test():
+
+    await save_summary(
+
+        "robin",
+
+        "Robin is learning AI Engineering."
+
+    )
+
+    summary = await get_summary("robin")
+
+    return {
+
+        "summary": summary
+
+    }
+
+
+
 @router.post(
     "/ask",
     response_model=AskResponse)
@@ -152,9 +175,9 @@ async def ask_question(request: QuestionRequest,user=Depends(authenticate_user))
 
     sql_start = time.perf_counter()
 
-    conversation = await get_conversation(
-        user["sub"]
-    )
+    conversation = await get_formatted_conversation(
+    user["sub"]
+)
 
     sql_query = await generate_sql(
         request.question,
