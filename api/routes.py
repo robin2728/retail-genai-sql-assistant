@@ -349,9 +349,9 @@ async def ask_question(request: QuestionRequest,user=Depends(authenticate_user))
 
     conversation = await get_conversation(user["sub"])
 
-    if len(conversation) >= 30:
+    if len(conversation) >= 6:
 
-        old_conversation = conversation[:-10]
+        old_conversation = conversation[:-2]
 
         new_summary = await generate_summary(
             old_conversation
