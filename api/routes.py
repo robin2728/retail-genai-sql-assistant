@@ -7,6 +7,14 @@ from models.schemas import (
     QuestionRequest,
     AskResponse
 )
+
+from services.summary_service import (
+    generate_summary
+)
+
+from memory.conversation_memory import (
+    get_conversation
+)
 from memory.memory_service import (
     get_formatted_conversation
 )
@@ -109,25 +117,20 @@ async def login(
 
 
 
-@router.get("/summary-test")
-async def summary_test():
+@router.get("/generate-summary")
+async def generate_summary_test():
 
-    await save_summary(
-
-        "robin",
-
-        "Robin is learning AI Engineering."
-
+    conversation = await get_conversation(
+        "robin"
     )
 
-    summary = await get_summary("robin")
+    summary = await generate_summary(
+        conversation
+    )
 
     return {
-
         "summary": summary
-
     }
-
 
 
 @router.post(
