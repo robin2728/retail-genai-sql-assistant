@@ -12,6 +12,8 @@ from services.summary_service import (
     generate_summary
 )
 
+from services.router_service import *
+
 from memory.conversation_memory import (
     get_conversation
 )
@@ -115,7 +117,16 @@ async def login(
         token_type="bearer"
     )
 
+@router.post("/classify")
+async def classify(request: QuestionRequest):
 
+    intent = await classify_intent(
+        request.question
+    )
+
+    return {
+        "intent": intent
+    }
 
 @router.get("/generate-summary")
 async def generate_summary_test():
