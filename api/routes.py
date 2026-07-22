@@ -56,6 +56,13 @@ HARDCODED_USER = {
     "password": "password123"
 }
 
+# =====================================
+# MEMORY CONFIGURATION
+# =====================================
+
+SUMMARY_THRESHOLD = 30
+RECENT_MESSAGES = 10
+
 def load_schema():
 
     with open("schema.txt", "r") as f:
@@ -145,22 +152,6 @@ async def generate_summary_test():
     }
 
 
-@router.post("/chat")
-async def chat(
-    request: QuestionRequest,
-    user=Depends(authenticate_user)):
-    memory_context = await get_memory_context(
-        user["sub"]
-    )
-
-    response = await generate_chat_response(
-        request.question,
-        memory_context
-    )
-
-    return {
-        "response": response
-    }
 
 
 @router.post(
@@ -189,6 +180,103 @@ async def ask_question(request: QuestionRequest,user=Depends(authenticate_user))
             status_code=429,
             detail="Rate limit exceeded"
         )
+    
+    # =====================================
+    # LOAD MEMORY
+    # =====================================
+
+    memory_context = await get_memory_context(
+        user["sub"]
+    )
+
+
+    # =====================================
+    # CLASSIFY USER INTENT
+    # =====================================
+
+    intent = await classify_intent(
+        request.question
+    )
+
+    log_event(
+        event="intent_classified",
+        question=request.question,
+        intent=intent
+    )
+
+        # ==================================================
+    # CHAT / GENERAL PATH
+    # ==================================================
+
+    if intent in ["GENERAL", "CONVERSATION"]:
+
+        response = await generate_chat_response(
+            request.question,
+            memory_context
+        )
+
+        await append_message(
+            user["sub"],
+            "user",
+            request.question
+        )
+
+        await append_message(
+            user["sub"],
+            "assistant",
+            response
+        )
+
+        conversation = await get_conversation(
+            user["sub"]
+        )
+
+        if len(conversation) >= SUMMARY_THRESHOLD:
+
+            old_conversation = conversation[:-RECENT_MESSAGES]
+
+            new_summary = await generate_summary(
+                old_conversation
+            )
+
+            existing_summary = await get_summary(
+                user["sub"]
+            )
+
+            if existing_summary:
+
+                final_summary = (
+                    existing_summary
+                    + "\n\n"
+                    + new_summary
+                )
+
+            else:
+
+                final_summary = new_summary
+
+            await save_summary(
+                user["sub"],
+                final_summary
+            )
+
+            await trim_conversation(
+                user["sub"],
+                keep_last=RECENT_MESSAGES
+            )
+
+        return AskResponse(
+
+            question=request.question,
+
+            sql_query="",
+
+            result=[],
+
+            insight=response
+
+        )
+
 
     # =====================================
     # SCHEMA LOAD TIMING
