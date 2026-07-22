@@ -13,6 +13,7 @@ from services.summary_service import (
 )
 
 from services.router_service import *
+from services.chat_service import *
 
 from memory.conversation_memory import (
     get_conversation
@@ -141,6 +142,24 @@ async def generate_summary_test():
 
     return {
         "summary": summary
+    }
+
+
+@router.post("/chat")
+async def chat(
+    request: QuestionRequest,
+    user=Depends(authenticate_user)):
+    memory_context = await get_memory_context(
+        user["sub"]
+    )
+
+    response = await generate_chat_response(
+        request.question,
+        memory_context
+    )
+
+    return {
+        "response": response
     }
 
 
