@@ -1,12 +1,10 @@
 from fastapi import APIRouter, HTTPException
 import time
 from fastapi import Depends
-from memory.conversation_memory import *
 from auth.auth_dependency import authenticate_user
-from models.schemas import (
-    QuestionRequest,
-    AskResponse
-)
+from typing import Union
+from models.schemas import *
+
 
 from services.summary_service import (
     generate_summary
@@ -15,12 +13,10 @@ from services.summary_service import (
 from services.router_service import *
 from services.chat_service import *
 
-from memory.conversation_memory import (
-    get_conversation
-)
-from memory.memory_service import (
-    get_memory_context
-)
+from memory.conversation_memory import *
+from memory.memory_service import *
+from memory.memory_helper import update_memory
+
 from fastapi.security import OAuth2PasswordRequestForm
 from auth.jwt_handler import create_access_token
 
@@ -153,10 +149,14 @@ async def generate_summary_test():
 
 
 
-
 @router.post(
     "/ask",
-    response_model=AskResponse)
+    response_model=Union[
+        DatabaseResponse,
+        ChatResponse,
+        ErrorResponse
+    ]
+)
 async def ask_question(request: QuestionRequest,user=Depends(authenticate_user)):
 
     request_start = time.perf_counter()
@@ -168,7 +168,7 @@ async def ask_question(request: QuestionRequest,user=Depends(authenticate_user))
     rate_start = time.perf_counter()
 
     allowed = await check_rate_limit(
-        request.user_id
+        user["sub"]
     )
 
     rate_time = (
@@ -214,68 +214,17 @@ async def ask_question(request: QuestionRequest,user=Depends(authenticate_user))
             request.question,
             memory_context
         )
-
-        await append_message(
+        await update_memory(
             user["sub"],
-            "user",
-            request.question
-        )
-
-        await append_message(
-            user["sub"],
-            "assistant",
+            request.question,
             response
         )
+  
 
-        conversation = await get_conversation(
-            user["sub"]
-        )
-
-        if len(conversation) >= SUMMARY_THRESHOLD:
-
-            old_conversation = conversation[:-RECENT_MESSAGES]
-
-            new_summary = await generate_summary(
-                old_conversation
-            )
-
-            existing_summary = await get_summary(
-                user["sub"]
-            )
-
-            if existing_summary:
-
-                final_summary = (
-                    existing_summary
-                    + "\n\n"
-                    + new_summary
-                )
-
-            else:
-
-                final_summary = new_summary
-
-            await save_summary(
-                user["sub"],
-                final_summary
-            )
-
-            await trim_conversation(
-                user["sub"],
-                keep_last=RECENT_MESSAGES
-            )
-
-        return AskResponse(
-
-            question=request.question,
-
-            sql_query="",
-
-            result=[],
-
-            insight=response
-
-        )
+        return ChatResponse(
+                response_type="chat",
+                question=request.question,
+                answer=response)
 
 
     # =====================================
@@ -295,8 +244,6 @@ async def ask_question(request: QuestionRequest,user=Depends(authenticate_user))
     # =====================================
 
     sql_start = time.perf_counter()
-
-    memory_context = await get_memory_context(user["sub"])
 
     sql_query = await generate_sql(
         request.question,
@@ -346,8 +293,10 @@ async def ask_question(request: QuestionRequest,user=Depends(authenticate_user))
             schema_load_time=round(schema_time, 4),
             sql_generation_time=round(sql_time, 4),
             cache_lookup_time=round(cache_lookup_time, 4),
-            total_time=round(total_time, 4))
-        return cached
+            total_time=round(total_time, 4)
+        )
+
+        return DatabaseResponse(**cached)
 
     log_event(
         event="cache_miss",
@@ -434,72 +383,22 @@ async def ask_question(request: QuestionRequest,user=Depends(authenticate_user))
     # RESPONSE BUILD
     # =====================================
 
-    response = AskResponse(
+    response = DatabaseResponse(
+        response_type="database",
         question=request.question,
         sql_generated=sql_query,
         insight=insight,
-        data=result
-    )
+        data=result)
 
         # =====================================
     # SAVE CONVERSATION MEMORY
     # =====================================
 
-    await append_message(
-
+    await update_memory(
         user["sub"],
-
-        "user",
-
-        request.question
-
-    )
-
-    await append_message(
-
-        user["sub"],
-
-        "assistant",
-
+        request.question,
         insight
-
     )
-
-    conversation = await get_conversation(user["sub"])
-
-    if len(conversation) >= 6:
-
-        old_conversation = conversation[:-2]
-
-        new_summary = await generate_summary(
-            old_conversation
-        )
-
-        existing_summary = await get_summary(
-            user["sub"]
-        )
-
-        if existing_summary:
-
-            final_summary = (
-                existing_summary
-                + "\n\n"
-                + new_summary
-            )
-
-        else:
-
-            final_summary = new_summary
-
-        await save_summary(
-            user["sub"],
-            final_summary
-        )
-
-        await trim_conversation(
-            user["sub"],
-            keep_last=10
-        )
     # =====================================
     # CACHE SAVE TIMING
     # =====================================

@@ -1,15 +1,24 @@
+from typing import List, Any, Literal
 from pydantic import BaseModel
-from typing import List, Any
 
 class QuestionRequest(BaseModel):
-    user_id: str
     question: str
 
-class AskResponse(BaseModel):
+class DatabaseResponse(BaseModel):
+    response_type: Literal["database"]
     question: str
     sql_generated: str
+    data: list
     insight: str
-    data: List[Any]
+
+class ChatResponse(BaseModel):
+    response_type: Literal["chat"]
+    question: str
+    answer: str
+
+class ErrorResponse(BaseModel):
+    response_type: Literal["error"]
+    message: str
 
 class LoginRequest(BaseModel):
 

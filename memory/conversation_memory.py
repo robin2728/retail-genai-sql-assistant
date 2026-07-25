@@ -198,3 +198,28 @@ async def save_summary(
         event="summary_saved",
         user=user_id
     )
+
+
+# ==========================================
+# TRIM CONVERSATION
+# ==========================================
+
+async def trim_conversation(
+    user_id: str,
+    keep_last: int = 10
+):
+
+    conversation = await get_conversation(user_id)
+
+    conversation = conversation[-keep_last:]
+
+    await save_conversation(
+        user_id,
+        conversation
+    )
+
+    log_event(
+        event="conversation_trimmed",
+        user=user_id,
+        remaining_messages=len(conversation)
+    )
