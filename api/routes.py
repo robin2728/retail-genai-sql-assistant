@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException , Request
 import time
 from fastapi import Depends
 from auth.auth_dependency import authenticate_user
 from typing import Union
 from models.schemas import *
+
 
 
 from services.summary_service import (
@@ -22,13 +23,8 @@ from auth.jwt_handler import create_access_token
 
 from models.schemas import TokenResponse
 
-from services.sql_service import generate_sql
-from services.retry_service import retry_sql
-from services.insight_service import generate_insight
+from services.sql_service import run_sql_workflow
 
-from validators.sql_validator import validate_sql
-
-from db.database import execute_sql
 
 from cache.cache_service import (
     generate_cache_key,
@@ -157,7 +153,11 @@ async def generate_summary_test():
         ErrorResponse
     ]
 )
-async def ask_question(request: QuestionRequest,user=Depends(authenticate_user)):
+async def ask_question(
+    request: QuestionRequest,
+    http_request: Request,
+    user=Depends(authenticate_user)
+):
 
     request_start = time.perf_counter()
 
@@ -245,25 +245,24 @@ async def ask_question(request: QuestionRequest,user=Depends(authenticate_user))
 
     sql_start = time.perf_counter()
 
-    sql_query = await generate_sql(
-        request.question,
-        schema,
-        memory_context)
+    try:
+        db_pool = http_request.app.state.db_pool
+        workflow = await run_sql_workflow(
+            request.question,
+            schema,
+            memory_context,
+            db_pool
+        )
 
-    sql_time = (
-        time.perf_counter() - sql_start
-    )
+        sql_time = time.perf_counter() - sql_start
+        sql_query = workflow.sql
+        result = workflow.result
 
-    log_event(
-        event="sql_generated",
-        question=request.question,
-        sql=sql_query,
-        sql_generation_time=round(sql_time, 4))
+    except Exception as e:
 
-    if not validate_sql(sql_query):
         raise HTTPException(
             status_code=400,
-            detail="Unsafe SQL generated"
+            detail=str(e)
         )
 
     # =====================================
@@ -302,82 +301,12 @@ async def ask_question(request: QuestionRequest,user=Depends(authenticate_user))
         event="cache_miss",
         question=request.question)
 
-    # =====================================
-    # DATABASE TIMING
-    # =====================================
-
-    db_time = 0
-    retry_time = 0
-
-    try:
-
-        db_start = time.perf_counter()
-
-        result = await execute_sql(
-            sql_query
-        )
-
-        db_time = (
-            time.perf_counter() - db_start
-        )
-
-    except Exception as e:
-
-        log_event(
-            event="sql_execution_error",
-            question=request.question,
-            error=str(e))
-
-        # ============================
-        # RETRY TIMING
-        # ============================
-
-        retry_start = time.perf_counter()
-
-        corrected_sql = await retry_sql(
-            schema,
-            request.question,
-            sql_query,
-            str(e)
-        )
-
-        retry_time = (
-            time.perf_counter() - retry_start
-        )
-
-        if not validate_sql(corrected_sql):
-            raise HTTPException(
-                status_code=400,
-                detail="Unsafe retry SQL"
-            )
-
-        db_start = time.perf_counter()
-
-        result = await execute_sql(
-            corrected_sql
-        )
-
-        db_time += (
-            time.perf_counter() - db_start
-        )
-
-        sql_query = corrected_sql
 
     # =====================================
     # INSIGHT GENERATION TIMING
     # =====================================
 
-    insight_start = time.perf_counter()
-
-    insight = await generate_insight(
-        request.question,
-        str(result),
-        memory_context
-    )
-
-    insight_time = (
-        time.perf_counter() - insight_start
-    )
+    insight = workflow.insight
 
     # =====================================
     # RESPONSE BUILD
@@ -429,9 +358,6 @@ async def ask_question(request: QuestionRequest,user=Depends(authenticate_user))
         schema_load_time=round(schema_time, 4),
         sql_generation_time=round(sql_time, 4),
         cache_lookup_time=round(cache_lookup_time, 4),
-        db_execution_time=round(db_time, 4),
-        retry_time=round(retry_time, 4),
-        insight_generation_time=round(insight_time, 4),
         cache_save_time=round(cache_save_time, 4),
         total_time=round(total_time, 4))
 

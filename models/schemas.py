@@ -32,3 +32,9 @@ class TokenResponse(BaseModel):
     access_token: str
 
     token_type: str
+
+
+class SQLWorkflowResult(BaseModel):
+    sql: str
+    result: Any
+    insight: str
