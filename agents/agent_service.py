@@ -193,8 +193,20 @@ async def ask_agent(
     app_context: ApplicationContext
 ):
 
+    memory_context = await get_memory_context(
+        app_context.current_user["sub"]
+    )
+
     messages = [
-        HumanMessage(content=question)
+        HumanMessage(
+            content=f"""
+                    Previous conversation:
+                    {memory_context}
+
+                    Current user question:
+                    {question}
+                    """
+        )
     ]
 
     while True:
