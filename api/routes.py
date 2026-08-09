@@ -4,7 +4,8 @@ from fastapi import Depends
 from auth.auth_dependency import authenticate_user
 from typing import Union
 from models.schemas import *
-
+from agents.agent_service import ask_agent
+from context.context_builder import ContextBuilder
 
 
 from services.summary_service import (
@@ -145,220 +146,37 @@ async def generate_summary_test():
 
 
 
-@router.post(
-    "/ask",
-    response_model=Union[
-        DatabaseResponse,
-        ChatResponse,
-        ErrorResponse
-    ]
-)
+@router.post("/ask")
 async def ask_question(
     request: QuestionRequest,
     http_request: Request,
-    user=Depends(authenticate_user)
-):
-
-    request_start = time.perf_counter()
+    user=Depends(authenticate_user)):
 
     # =====================================
-    # RATE LIMIT TIMING
+    # 1. Build Application Context
     # =====================================
 
-    rate_start = time.perf_counter()
-
-    allowed = await check_rate_limit(
-        user["sub"]
-    )
-
-    rate_time = (
-        time.perf_counter() - rate_start
-    )
-
-    if not allowed:
-        raise HTTPException(
-            status_code=429,
-            detail="Rate limit exceeded"
-        )
-    
-    # =====================================
-    # LOAD MEMORY
-    # =====================================
-
-    memory_context = await get_memory_context(
-        user["sub"]
+    app_context = ContextBuilder.build_application_context(
+        http_request.app,
+        user
     )
 
 
     # =====================================
-    # CLASSIFY USER INTENT
+    # 2. Send question to Agent
     # =====================================
 
-    intent = await classify_intent(
-        request.question
-    )
-
-    log_event(
-        event="intent_classified",
-        question=request.question,
-        intent=intent
-    )
-
-        # ==================================================
-    # CHAT / GENERAL PATH
-    # ==================================================
-
-    if intent in ["GENERAL", "CONVERSATION"]:
-
-        response = await generate_chat_response(
-            request.question,
-            memory_context
-        )
-        await update_memory(
-            user["sub"],
-            request.question,
-            response
-        )
-  
-
-        return ChatResponse(
-                response_type="chat",
-                question=request.question,
-                answer=response)
-
-
-    # =====================================
-    # SCHEMA LOAD TIMING
-    # =====================================
-
-    schema_start = time.perf_counter()
-
-    schema = load_schema()
-
-    schema_time = (
-        time.perf_counter() - schema_start
-    )
-
-    # =====================================
-    # SQL GENERATION TIMING
-    # =====================================
-
-    sql_start = time.perf_counter()
-
-    try:
-        db_pool = http_request.app.state.db_pool
-        workflow = await run_sql_workflow(
-            request.question,
-            schema,
-            memory_context,
-            db_pool
-        )
-
-        sql_time = time.perf_counter() - sql_start
-        sql_query = workflow.sql
-        result = workflow.result
-
-    except Exception as e:
-
-        raise HTTPException(
-            status_code=400,
-            detail=str(e)
-        )
-
-    # =====================================
-    # CACHE LOOKUP TIMING
-    # =====================================
-
-    cache_key = generate_cache_key(sql_query)
-
-    cache_start = time.perf_counter()
-
-    cached = await get_cache(cache_key)
-
-    cache_lookup_time = (
-        time.perf_counter() - cache_start
-    )
-
-    if cached:
-
-        total_time = (
-            time.perf_counter() - request_start
-        )
-
-        log_event(
-            event="cache_hit",
-            question=request.question,
-            rate_limit_time=round(rate_time, 4),
-            schema_load_time=round(schema_time, 4),
-            sql_generation_time=round(sql_time, 4),
-            cache_lookup_time=round(cache_lookup_time, 4),
-            total_time=round(total_time, 4)
-        )
-
-        return DatabaseResponse(**cached)
-
-    log_event(
-        event="cache_miss",
-        question=request.question)
-
-
-    # =====================================
-    # INSIGHT GENERATION TIMING
-    # =====================================
-
-    insight = workflow.insight
-
-    # =====================================
-    # RESPONSE BUILD
-    # =====================================
-
-    response = DatabaseResponse(
-        response_type="database",
-        question=request.question,
-        sql_generated=sql_query,
-        insight=insight,
-        data=result)
-
-        # =====================================
-    # SAVE CONVERSATION MEMORY
-    # =====================================
-
-    await update_memory(
-        user["sub"],
+    response = await ask_agent(
         request.question,
-        insight
-    )
-    # =====================================
-    # CACHE SAVE TIMING
-    # =====================================
-
-    cache_save_start = time.perf_counter()
-
-    await set_cache(
-        cache_key,
-        response.model_dump()
+        app_context
     )
 
-    cache_save_time = (
-        time.perf_counter() - cache_save_start
-    )
 
     # =====================================
-    # TOTAL REQUEST TIME
+    # 3. Return Agent response
     # =====================================
 
-    total_time = (
-        time.perf_counter() - request_start
-    )
-
-    log_event(
-        event="request_completed",
-        question=request.question,
-        rate_limit_time=round(rate_time, 4),
-        schema_load_time=round(schema_time, 4),
-        sql_generation_time=round(sql_time, 4),
-        cache_lookup_time=round(cache_lookup_time, 4),
-        cache_save_time=round(cache_save_time, 4),
-        total_time=round(total_time, 4))
-
-    return response
+    return {
+        "question": request.question,
+        "answer": response.content
+    }

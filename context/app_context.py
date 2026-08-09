@@ -17,10 +17,10 @@ class ApplicationContext:
 
     db_pool: Any
 
-    redis_client: Any
+"""    redis_client: Any
 
     logger: Any
 
     config: dict
 
-    memory_service: Any
+    memory_service: Any"""
