@@ -150,7 +150,8 @@ async def generate_summary_test():
 async def ask_question(
     request: QuestionRequest,
     http_request: Request,
-    user=Depends(authenticate_user)):
+    user=Depends(authenticate_user)
+):
 
     # =====================================
     # 1. Build Application Context
@@ -173,7 +174,18 @@ async def ask_question(
 
 
     # =====================================
-    # 3. Return Agent response
+    # 3. Save conversation to memory
+    # =====================================
+
+    await update_memory(
+        user["sub"],
+        request.question,
+        response.content
+    )
+
+
+    # =====================================
+    # 4. Return Agent response
     # =====================================
 
     return {
