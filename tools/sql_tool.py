@@ -8,12 +8,13 @@ def load_schema():
         return f.read()
 
 
+from langchain_core.tools import tool
+
+
 @tool
 async def sql_tool(
     question: str
 ):
-    schema = load_schema()
-    memory_context = get_memory_context(user["sub"])
     """
     Use this tool when the user asks questions that require
     retrieving, aggregating, filtering, or analyzing retail
@@ -26,8 +27,6 @@ async def sql_tool(
     - Number of orders yesterday
     """
 
-    return await run_sql_workflow(
-        question,
-        schema,
-        memory_context
-    )
+    return {
+        "question": question
+    }
