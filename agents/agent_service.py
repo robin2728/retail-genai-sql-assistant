@@ -2,6 +2,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, ToolMessage
 
 from tools.sql_tool import sql_tool
+from tools.email_tool import email_tool
 from context.app_context import ApplicationContext
 
 from services.sql_service import run_sql_workflow
@@ -32,7 +33,8 @@ llm = ChatOpenAI(
 # ============================================================
 
 llm_with_tools = llm.bind_tools([
-    sql_tool
+    sql_tool,
+    email_tool
 ])
 
 
@@ -53,7 +55,8 @@ llm_with_tools = llm.bind_tools([
 # ============================================================
 
 TOOLS = {
-    "sql_tool": sql_tool
+    "sql_tool": sql_tool,
+    "email_tool": email_tool
 }
 
 
@@ -119,6 +122,42 @@ async def execute_sql_tool(
     return result
 
 
+async def execute_email_tool(
+    tool_args: dict,
+    app_context: ApplicationContext
+):
+    """
+    Runtime executor for the email tool.
+
+    The LLM provides:
+        recipient
+        subject
+        body
+
+    Application provides:
+        app_context
+    """
+
+    recipient = tool_args["recipient"]
+    subject = tool_args["subject"]
+    body = tool_args["body"]
+
+    print("\n========== EMAIL EXECUTOR ==========")
+    print("Recipient:", recipient)
+    print("Subject:", subject)
+    print("Body:", body)
+
+    # For now we are NOT sending a real email.
+    # This is only a test of the agent orchestration.
+
+    result = await email_tool.ainvoke({
+        "recipient": recipient,
+        "subject": subject,
+        "body": body
+    })
+
+    return result
+
 # ============================================================
 # Tool Executor Registry
 # ============================================================
@@ -136,7 +175,8 @@ async def execute_sql_tool(
 # ============================================================
 
 TOOL_EXECUTORS = {
-    "sql_tool": execute_sql_tool
+    "sql_tool": execute_sql_tool,
+    "email_tool": execute_email_tool
 }
 
 
