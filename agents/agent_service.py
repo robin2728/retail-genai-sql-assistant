@@ -144,6 +144,12 @@ async def ask_agent(
             state.status = "completed"
             state.final_response = response
 
+            print("\n========== FINAL EXECUTION STATE ==========")
+            print("Status:", state.status)
+            print("Tool Calls:", state.tool_calls)
+            print("Tool Results:", state.tool_results)
+            print("Final Response:", state.final_response.content)
+
             return response
 
 
@@ -169,6 +175,9 @@ async def ask_agent(
                     "id": tool_call_id
                 })
 
+            print("\n========== EXECUTION STATE: TOOL CALL ==========")
+            print(state.tool_calls)
+
 
             print("\n========== TOOL CALL ==========")
             print("Tool:", tool_name)
@@ -189,6 +198,11 @@ async def ask_agent(
                     "tool": tool_name,
                     "result": tool_result
                 })
+
+            print("\n========== EXECUTION STATE: TOOL RESULT ==========")
+            print(state.tool_results)
+
+
             print("\n========== TOOL RESULT ==========")
             print(tool_result)
 
