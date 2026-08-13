@@ -3,9 +3,9 @@ from langchain_core.messages import (
     HumanMessage,
     ToolMessage,
 )
-
+from context.execution_state import ExecutionState
 from context.app_context import ApplicationContext
-
+from memory.memory_service import get_memory_context
 from agents.tool_registry import (
     get_llm_tools,
     get_tool_executor,
@@ -84,7 +84,7 @@ async def ask_agent(
     # Retrieve previous conversation
     # --------------------------------------------------------
 
-    from memory.memory_service import get_memory_context
+    
 
     memory_context = await get_memory_context(
         app_context.current_user["sub"]
@@ -95,16 +95,19 @@ async def ask_agent(
     # Initial conversation
     # --------------------------------------------------------
 
-    messages = [
+    state = ExecutionState()
+
+    state.messages.append(
         HumanMessage(
             content=f"""
-                    Previous conversation:
-                    {memory_context}
+    Previous conversation:
+    {memory_context}
 
-                    Current user question:
-                    {question}"""
+    Current user question:
+    {question}
+    """
         )
-    ]
+    )
 
 
     # ========================================================
@@ -118,9 +121,8 @@ async def ask_agent(
         # ----------------------------------------------------
 
         response = await llm_with_tools.ainvoke(
-            messages
+            state.messages
         )
-
 
         # ----------------------------------------------------
         # Debugging
@@ -139,6 +141,8 @@ async def ask_agent(
 
             print("\n========== FINAL ANSWER ==========")
             print(response.content)
+            state.status = "completed"
+            state.final_response = response
 
             return response
 
@@ -147,8 +151,7 @@ async def ask_agent(
         # Add LLM response to conversation
         # ----------------------------------------------------
 
-        messages.append(response)
-
+        state.messages.append(response)
 
         # ----------------------------------------------------
         # Execute each requested tool
@@ -159,6 +162,12 @@ async def ask_agent(
             tool_name = tool_call["name"]
             tool_args = tool_call["args"]
             tool_call_id = tool_call["id"]
+
+            state.tool_calls.append({
+                    "name": tool_name,
+                    "args": tool_args,
+                    "id": tool_call_id
+                })
 
 
             print("\n========== TOOL CALL ==========")
@@ -176,7 +185,10 @@ async def ask_agent(
                 app_context=app_context
             )
 
-
+            state.tool_results.append({
+                    "tool": tool_name,
+                    "result": tool_result
+                })
             print("\n========== TOOL RESULT ==========")
             print(tool_result)
 
@@ -185,7 +197,7 @@ async def ask_agent(
             # Give result back to LLM
             # ------------------------------------------------
 
-            messages.append(
+            state.messages.append(
                 ToolMessage(
                     content=str(tool_result),
                     tool_call_id=tool_call_id

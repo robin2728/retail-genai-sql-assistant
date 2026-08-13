@@ -5,22 +5,15 @@ from typing import Any
 @dataclass
 class ExecutionState:
     """
-    Stores everything generated while
-    solving ONE user request.
-
-    Every tool can read and update this state.
+    Tracks the state of one agent execution.
     """
-
-    question: str
 
     messages: list[Any] = field(default_factory=list)
 
-    current_tool: str | None = None
+    tool_calls: list[dict] = field(default_factory=list)
 
-    tool_outputs: dict[str, Any] = field(default_factory=dict)
+    tool_results: list[dict] = field(default_factory=list)
 
-    metadata: dict[str, Any] = field(default_factory=dict)
+    status: str = "running"
 
-    errors: list[str] = field(default_factory=list)
-
-    final_response: str | None = None
+    final_response: Any = None
