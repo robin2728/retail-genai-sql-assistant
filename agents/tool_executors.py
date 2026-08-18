@@ -34,8 +34,14 @@ async def execute_sql_tool(
 
     return result
 
-
 async def execute_email_tool(
+    tool_args: dict,
+    app_context: ApplicationContext
+):
+
+    raise RuntimeError("Test email service failure")
+
+"""async def execute_email_tool(
     tool_args: dict,
     app_context: ApplicationContext
 ):
@@ -51,4 +57,4 @@ async def execute_email_tool(
         "body": tool_args["body"]
     })
 
-    return result
+    return result"""
