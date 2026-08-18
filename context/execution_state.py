@@ -17,3 +17,7 @@ class ExecutionState:
     status: str = "running"
 
     final_response: Any = None
+
+    errors: list[dict] = field(default_factory=list)
+    current_tool: str | None = None
+    iteration: int = 0

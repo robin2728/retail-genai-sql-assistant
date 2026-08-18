@@ -38,37 +38,76 @@ llm_with_tools = llm.bind_tools(
 async def execute_tool(
     tool_name: str,
     tool_args: dict,
-    app_context: ApplicationContext
+    app_context: ApplicationContext,
+    state: ExecutionState
 ):
     """
-    Generic runtime tool executor.
-
-    The LLM provides:
-        tool_name
-        tool_args
-
-    The application provides:
-        app_context
-
-    The Tool Registry determines which
-    Python executor should actually run.
+    Execute a tool and track its execution state.
     """
 
     # --------------------------------------------------------
-    # Find the executor for this tool
+    # Record which tool is currently executing
     # --------------------------------------------------------
 
-    executor = get_tool_executor(tool_name)
+    state.current_tool = tool_name
 
+    try:
 
-    # --------------------------------------------------------
-    # Execute the tool
-    # --------------------------------------------------------
+        # ----------------------------------------------------
+        # Find executor from Tool Registry
+        # ----------------------------------------------------
 
-    return await executor(
-        tool_args,
-        app_context
-    )
+        executor = get_tool_executor(tool_name)
+
+        # ----------------------------------------------------
+        # Execute the tool
+        # ----------------------------------------------------
+
+        result = await executor(
+            tool_args,
+            app_context
+        )
+
+        # ----------------------------------------------------
+        # Tool succeeded
+        # ----------------------------------------------------
+
+        return result
+
+    except Exception as exc:
+
+        # ----------------------------------------------------
+        # Record the failure
+        # ----------------------------------------------------
+
+        state.errors.append({
+            "tool": tool_name,
+            "error": str(exc)
+        })
+
+        # ----------------------------------------------------
+        # Mark execution as failed
+        # ----------------------------------------------------
+
+        state.status = "failed"
+
+        # ----------------------------------------------------
+        # Re-raise the exception
+        #
+        # We are NOT hiding the error.
+        # We are recording it and then allowing
+        # the normal error handling to continue.
+        # ----------------------------------------------------
+
+        raise
+
+    finally:
+
+        # ----------------------------------------------------
+        # Tool execution is finished
+        # ----------------------------------------------------
+
+        state.current_tool = None
 
 
 # ============================================================
@@ -115,7 +154,11 @@ async def ask_agent(
     # ========================================================
 
     while True:
+        state.iteration += 1
 
+        response = await llm_with_tools.ainvoke(
+            state.messages
+        )
         # ----------------------------------------------------
         # Ask LLM what to do
         # ----------------------------------------------------
@@ -191,7 +234,8 @@ async def ask_agent(
             tool_result = await execute_tool(
                 tool_name=tool_name,
                 tool_args=tool_args,
-                app_context=app_context
+                app_context=app_context,
+                state=state
             )
 
             state.tool_results.append({
