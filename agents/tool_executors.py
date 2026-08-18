@@ -40,21 +40,3 @@ async def execute_email_tool(
 ):
 
     raise RuntimeError("Test email service failure")
-
-"""async def execute_email_tool(
-    tool_args: dict,
-    app_context: ApplicationContext
-):
-    """
-    Execute the email tool.
-
-    Currently this is a mock email implementation.
-    """
-
-    result = await email_tool.ainvoke({
-        "recipient": tool_args["recipient"],
-        "subject": tool_args["subject"],
-        "body": tool_args["body"]
-    })
-
-    return result"""
